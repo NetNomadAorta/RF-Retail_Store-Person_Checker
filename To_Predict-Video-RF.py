@@ -92,42 +92,42 @@ def which_area(image, midx, midy):
     # X sections: 0.10, 0.30, 0.35, 0.55, 0.65, 0.85
     if xf <= 0.10:
         if yf <= 0.0*xf + 0.2: # Top-left line
-            area = "Area 2"
+            area = "A2"
         else:
             area = "Register"
     elif xf > 0.10 and xf <= 0.30:
         if yf <= -0.444*xf + 0.294: # Top-middle line
-            area = "Area 2"
+            area = "A2"
         elif yf <= 2.75*xf + -0.025: # Left line
-            area = "Area 3"
+            area = "A3"
         else:
             area = "Register"
     elif xf > 0.30 and xf <= 0.35:
         if yf <= -0.444*xf + 0.294: # Top-middle line
-            area = "Area 2"
+            area = "A2"
         elif yf <= -1.0*xf + 1.1: # Bottom line
             area = "Area 3"
         else:
             area = "Entrance"
     elif xf > 0.35 and xf <= 0.55:
         if yf <= -0.444*xf + 0.294: # Top-middle line
-            area = "Area 2"
+            area = "A2"
         elif yf <= 1.0*xf + -0.2: # Middle Line
-            area = "Area 1"
+            area = "A1"
         elif yf <= -1.0*xf + 1.1: # Bottom line
-            area = "Area 3"
+            area = "A3"
         else:
             area = "Entrance"
     elif xf > 0.55 and xf <= 0.65:
         if yf <= 1.0*xf + -0.2: # Middle Line
-            area = "Area 1"
+            area = "A1"
         elif yf <= -1.0*xf + 1.1: # Bottom line
-            area = "Area 3"
+            area = "A3"
         else:
             area = "Entrance"
     elif xf > 0.65 and xf <= 0.85:
         if yf <= -1.0*xf + 1.1: # Bottom line
-            area = "Area 1"
+            area = "A1"
         else:
             area = "Entrance"
     else:
@@ -136,15 +136,8 @@ def which_area(image, midx, midy):
     return area
 
 
-def writes_text(text, start_point_index, font, font_scale, color, thickness):
-    start_point = (image_b4_color.shape[1]-300, 
-                   50 + 30*start_point_index
-                   )
-    cv2.putText(image_b4_color, text,  start_point, 
-                font, font_scale, color, thickness)
-
-
-
+# Main()
+# ==============================================================================
 # Starting stopwatch to see how long process takes
 start_time = time.time()
 
@@ -157,7 +150,9 @@ deleteDirContents(PREDICTED_PATH)
 # Start FPS timer
 fps_start_time = time.time()
 
-close_counters = 0 # Sum of how many times a person is close to a machine per frame
+prev_coordinates = []
+prev_prev_coordinates = []
+prev_prev_prev_coordinates = []
 ii = 0
 # Goes through each video in TO_PREDICT_PATH
 for video_name in os.listdir(TO_PREDICT_PATH):
@@ -237,126 +232,63 @@ for video_name in os.listdir(TO_PREDICT_PATH):
             x2 = int( prediction['x'] + prediction['width']/2 )
             y2 = int( prediction['y'] + prediction['height']/2 )
             
+            coordinates.append([x1, y1, x2, y2, 0])
+            
             midx = int(prediction['x'])
             midy = int(prediction['y'])
+            
+            # Checks to see if previous bounding boxes match with current ones
+            #  If so, then adds to timer
+            frame_pixel_limiter = 40
+            for prev_coordinate in prev_coordinates:
+                prev_x1 = prev_coordinate[0]
+                if abs(x1-prev_x1) < frame_pixel_limiter:
+                    coordinates[-1][4] = prev_coordinate[4] + 1/video_fps
+            
+            # If didn't catch any matching, then checks 2 frames ago
+            if coordinates[-1][4] == 0:
+                for prev_prev_coordinate in prev_prev_coordinates:
+                    prev_prev_x1 = prev_prev_coordinate[0]
+                    if abs(x1-prev_prev_x1) < frame_pixel_limiter:
+                        coordinates[-1][4] = prev_prev_coordinate[4] + 1/video_fps
+            
+            # If didn't catch any matching, then checks 3 frames ago
+            if coordinates[-1][4] == 0:
+                for prev_prev_prev_coordinate in prev_prev_prev_coordinates:
+                    prev_prev_prev_x1 = prev_prev_prev_coordinate[0]
+                    if abs(x1-prev_prev_prev_x1) < frame_pixel_limiter:
+                        coordinates[-1][4] = prev_prev_prev_coordinate[4] + 1/video_fps
             
             area = which_area(image_b4_color, midx, midy)
             
             # Draws text above person of what area they are in
-            text = area
-            start_point = ( x1, max(y1-5,0) )
-            color = (0, 0, 255)
+            text = area + ": {} sec".format(round(coordinates[-1][4],1))
+            start_point = ( x1, max(y1-5, 20) )
+            color = (125, 0, 255)
             font = cv2.FONT_HERSHEY_SIMPLEX
-            fontScale = 0.40
-            thickness = 1
-            cv2.putText(image_b4_color, area, start_point, 
+            fontScale = 0.60
+            thickness = 2
+            cv2.putText(image_b4_color, text, start_point, 
                         font, fontScale, (0,0,0), thickness+1)
-            cv2.putText(image_b4_color, area, start_point, 
+            cv2.putText(image_b4_color, text, start_point, 
                         font, fontScale, color, thickness)
             
             # Draws bounding box
-            cv2.rectangle(image_b4_color, (x1, y1), (x2, y2), color, thickness)
+            cv2.rectangle(image_b4_color, (x1, y1), (x2, y2), color, 1)
             
         
         # Writes text of each area
         writes_area_text(image_b4_color, "Register", 0.01, 0.25)
-        writes_area_text(image_b4_color, "Area 2", 0.20, 0.05)
-        writes_area_text(image_b4_color, "Area 3", 0.30, 0.40)
-        writes_area_text(image_b4_color, "Entrance", 0.50, 0.90)
-        writes_area_text(image_b4_color, "Area 1", 0.60, 0.20)
-            
-            
+        writes_area_text(image_b4_color, "Area 2 (A2)", 0.20, 0.05)
+        writes_area_text(image_b4_color, "Area 3 (A3)", 0.30, 0.40)
+        writes_area_text(image_b4_color, "Entrance", 0.70, 0.80)
+        writes_area_text(image_b4_color, "Area 1 (A1)", 0.60, 0.20)
         
         
-        # # Writes worker and machinery info on top right of video
-        # # ----------------------------Start-3----------------------------------
-        # font = cv2.FONT_HERSHEY_SIMPLEX
-        # font_scale = 0.8
-        # color = (0, 0, 255)
-        # thickness = 1
-        
-        # # Writes text: workers in frame
-        # text = "Workers in Frame: " + str(workers_in_frame_list[-1])
-        # writes_text(text, 0, font, font_scale, color, thickness)
-        
-        # # Writes text: min workers
-        # text = "Min Workers: " + str(min_workers)
-        # writes_text(text, 1, font, font_scale, color, thickness)
-        
-        # # Writes text: max workers
-        # text = "Max Workers: " + str(max_workers)
-        # writes_text(text, 2, font, font_scale, color, thickness)
-        
-        # # Writes text: avg workers
-        # text = "Avg Workers: " + str(avg_workers)
-        # writes_text(text, 3, font, font_scale, color, thickness)
-        
-        # # Writes person close counters to machines
-        # text = "Close Counters: " + str(close_counters)
-        # writes_text(text, 4, font, font_scale, color, thickness)
-        
-        # # Writes active machines
-        # active_machine_count = 0
-        # for active_machine in active_machine_list:
-        #     if active_machine[1] == "Active":
-        #         active_machine_count += 1
-        # text = "Active Machines: " + str(active_machine_count)
-        # writes_text(text, 5, font, font_scale, color, thickness)
-        
-        # # ----------------------------End-3-------------------------------------
-        
-        
-        # # Draws bounding box's (BB) and Writes BB's identity text on top left of BB
-        # for coordinate_index, coordinate in enumerate(coordinates):
-        #     # Bounding Box Section
-        #     # -------------------------------------------------------------
-        #     start_point = (int(coordinate[0]), int(coordinate[1]) )
-        #     end_point = (int(coordinate[2]), int(coordinate[3]) )
-        #     if labels_list[coordinate_index] == "Machinery-Base":
-        #         color = (255, 0, 0)
-        #     elif (labels_list[coordinate_index] == "Person" 
-        #           or labels_list[coordinate_index] == "CAUTION"):
-        #         color = (255, 0, 255)
-        #     thickness = 1
-        #     cv2.rectangle(image_b4_color, start_point, end_point, color, thickness)
-        #     # -------------------------------------------------------------
-            
-            
-        #     # Text Section
-        #     # -------------------------------------------------------------
-        #     text = labels_list[coordinate_index]
-        #     start_point = ( int(coordinate[0]), int(coordinate[1]) )
-        #     color = (255, 255, 255)
-            
-        #     start_point_text = (start_point[0], max(start_point[1]-5,0) )
-        #     font = cv2.FONT_HERSHEY_SIMPLEX
-        #     if "CAUTION" in text:
-        #         color = (0, 100, 255)
-        #         fontScale = 0.60
-        #         thickness = 2
-        #     else:
-        #         if text != "Person" and text != "Machinery-Base":
-        #             text = ""
-        #         elif text == "Machinery-Base":
-        #             text = "Machinery"
-                
-        #         color = (255, 255, 255)
-        #         fontScale = 0.30
-        #         thickness = 1
-            
-        #     cv2.putText(image_b4_color, text, 
-        #                 start_point_text, font, fontScale, color, thickness)
-        #     # -------------------------------------------------------------
-        
-        # # Writes active on machineas that are moving
-        # for active_machine in active_machine_list:
-        #     if active_machine[1] == "Active":
-        #         coordinates_temp[active_machine[0]]
-        #         mid_x = int(active_machine[2])
-        #         mix_y = int(active_machine[3])
-                
-        #         cv2.putText(image_b4_color, "Active", (mid_x, mix_y), 
-        #                     font, 0.6, (0,255,100), 2)
+        # Saves current coordinates to previous for next frame
+        prev_prev_prev_coordinates = prev_prev_coordinates.copy()
+        prev_prev_coordinates = prev_coordinates.copy()
+        prev_coordinates = coordinates.copy()
             
         
         # Saves video with bounding boxes
@@ -390,15 +322,18 @@ for video_name in os.listdir(TO_PREDICT_PATH):
         
         count += 1
         # If you want to stop after so many frames to debug, uncomment below
-        if count == 500:
+        if count == 50:
             break
     
     video_out.release()
 
 
-print("Done!")
+print("\nDone!")
 
 # Stopping stopwatch to see how long process takes
 end_time = time.time()
 time_lapsed = end_time - start_time
 time_convert(time_lapsed)
+
+# ==============================================================================
+
