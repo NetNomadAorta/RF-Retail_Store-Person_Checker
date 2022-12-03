@@ -1,9 +1,6 @@
 import os
 import sys
 import cv2
-# remove arnings (optional)
-import warnings
-warnings.filterwarnings("ignore")
 import time
 import shutil
 from PIL import Image
@@ -16,8 +13,8 @@ from requests_toolbelt.multipart.encoder import MultipartEncoder
 TO_PREDICT_PATH         = "./Images/Prediction_Images/To_Predict/"
 PREDICTED_PATH          = "./Images/Prediction_Images/Predicted_Images/"
 MIN_SCORE               = 0.5
-ROBOFLOW_MODEL          = "MODEL_NAME/MODEL_VERSION"
-ROBOFLOW_API_KEY        = "API_KEY"
+ROBOFLOW_MODEL          = "retail_store/3"
+ROBOFLOW_API_KEY        = "kAGiAjfXg1MNA0NfST4F"
 
 
 def time_convert(sec):
@@ -230,37 +227,43 @@ for video_name in os.listdir(TO_PREDICT_PATH):
             x2 = int( prediction['x'] + prediction['width']/2 )
             y2 = int( prediction['y'] + prediction['height']/2 )
             
-            coordinates.append([x1, y1, x2, y2, 0])
+            coordinates.append([x1, y1, x2, y2, "section", 0])
             
             midx = int(prediction['x'])
             midy = int(prediction['y'])
+            
+            # Finds which area the coordinates belong to
+            area = which_area(image_b4_color, midx, midy)
+            coordinates[-1][4] = area
             
             # Checks to see if previous bounding boxes match with current ones
             #  If so, then adds to timer
             frame_pixel_limiter = 40
             for prev_coordinate in prev_coordinates:
-                prev_x1 = prev_coordinate[0]
-                if abs(x1-prev_x1) < frame_pixel_limiter:
-                    coordinates[-1][4] = prev_coordinate[4] + 1/video_fps
+                if coordinates[-1][4] == prev_coordinate[4]:
+                    prev_x1 = prev_coordinate[0]
+                    if abs(x1-prev_x1) < frame_pixel_limiter:
+                        coordinates[-1][5] = prev_coordinate[5] + 1/video_fps
             
             # If didn't catch any matching, then checks 2 frames ago
             if coordinates[-1][4] == 0:
                 for prev_prev_coordinate in prev_prev_coordinates:
-                    prev_prev_x1 = prev_prev_coordinate[0]
-                    if abs(x1-prev_prev_x1) < frame_pixel_limiter:
-                        coordinates[-1][4] = prev_prev_coordinate[4] + 1/video_fps
+                    if coordinates[-1][4] == prev_prev_coordinate[4]:
+                        prev_prev_x1 = prev_prev_coordinate[0]
+                        if abs(x1-prev_prev_x1) < frame_pixel_limiter:
+                            coordinates[-1][5] = prev_prev_coordinate[5] + 1/video_fps
             
             # If didn't catch any matching, then checks 3 frames ago
             if coordinates[-1][4] == 0:
                 for prev_prev_prev_coordinate in prev_prev_prev_coordinates:
-                    prev_prev_prev_x1 = prev_prev_prev_coordinate[0]
-                    if abs(x1-prev_prev_prev_x1) < frame_pixel_limiter:
-                        coordinates[-1][4] = prev_prev_prev_coordinate[4] + 1/video_fps
+                    if coordinates[-1][4] == prev_prev_prev_coordinate[4]:
+                        prev_prev_prev_x1 = prev_prev_prev_coordinate[0]
+                        if abs(x1-prev_prev_prev_x1) < frame_pixel_limiter:
+                            coordinates[-1][5] = prev_prev_prev_coordinate[5] + 1/video_fps
             
-            area = which_area(image_b4_color, midx, midy)
             
             # Draws text above person of what area they are in
-            text = area + ": {} sec".format(round(coordinates[-1][4],1))
+            text = area + ": {} sec".format(round(coordinates[-1][5],1))
             start_point = ( x1, max(y1-5, 20) )
             color = (125, 0, 255)
             font = cv2.FONT_HERSHEY_SIMPLEX
@@ -320,7 +323,7 @@ for video_name in os.listdir(TO_PREDICT_PATH):
         
         count += 1
         # If you want to stop after so many frames to debug, uncomment below
-        if count == 50:
+        if count == 300:
             break
     
     video_out.release()

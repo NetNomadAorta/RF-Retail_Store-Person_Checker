@@ -1,6 +1,5 @@
 import cv2
 
-
 def draw_line(image, xf1, yf1, xf2, yf2):
     w = image.shape[1]
     h = image.shape[0]
@@ -22,13 +21,13 @@ def writes_area_text(image, text, xf1, yf1):
     
     start_point = (int(w*xf1), int(h*yf1) )
     font = cv2.FONT_HERSHEY_SIMPLEX
-    fontScale = 0.8
+    fontScale = 1.8
     color = (255,100,100)
     thickness = 2
     
     # Draws background text
     cv2.putText(image, text, 
-                start_point, font, fontScale, (0,0,0), thickness+3)
+                start_point, font, fontScale, (0,0,0), thickness*2)
     
     # Draws foreground text
     cv2.putText(image, text, 
