@@ -149,7 +149,7 @@ def object_match(coordinates, prev_coordinates):
                 and abs(y1-prev_y1) < frame_pixel_limiter
                 ):
                 coordinates[-1][5] = prev_coordinate[5] + 1/video_fps
-                return coordinates[-1][5]
+    return coordinates[-1][5]
 
 
 # Main()
@@ -332,8 +332,8 @@ for video_name in os.listdir(TO_PREDICT_PATH):
         
         count += 1
         # If you want to stop after so many frames to debug, uncomment below
-        if count == 300:
-            break
+        # if count == 300:
+        #     break
     
     video_out.release()
 
