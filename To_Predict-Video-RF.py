@@ -84,44 +84,53 @@ def which_area(image, midx, midy):
     xf = midx/w
     yf = midy/h
     
-    # X sections: 0.10, 0.30, 0.35, 0.55, 0.65, 0.85
-    if xf <= 0.10:
-        if yf <= 0.0*xf + 0.2: # Top-left line
+    # x sections
+    x1, x2, x3, x4, x5, x6 = 0.10, 0.30, 0.35, 0.55, 0.65, 0.85
+    
+    # y (mx+b) equations that separate each section
+    y1 = 0.0*xf + 0.2 # Top-left line
+    y2 = -0.444*xf + 0.294 # Top-middle line
+    y3 = 2.75*xf + -0.025 # Left line
+    y4 = -1.0*xf + 1.1 # Bottom line
+    y5 = 1.0*xf + -0.2 # Middle Line
+    
+    if xf <= x1:
+        if yf <= y1: # Top-left line
             area = "A2"
         else:
             area = "Register"
-    elif xf > 0.10 and xf <= 0.30:
-        if yf <= -0.444*xf + 0.294: # Top-middle line
+    elif xf > x1 and xf <= x2:
+        if yf <= y2: # Top-middle line
             area = "A2"
-        elif yf <= 2.75*xf + -0.025: # Left line
+        elif yf <= y3: # Left line
             area = "A3"
         else:
             area = "Register"
-    elif xf > 0.30 and xf <= 0.35:
-        if yf <= -0.444*xf + 0.294: # Top-middle line
+    elif xf > x2 and xf <= x3:
+        if yf <= y2: # Top-middle line
             area = "A2"
-        elif yf <= -1.0*xf + 1.1: # Bottom line
+        elif yf <= y4: # Bottom line
             area = "Area 3"
         else:
             area = "Entrance"
-    elif xf > 0.35 and xf <= 0.55:
-        if yf <= -0.444*xf + 0.294: # Top-middle line
+    elif xf > x3 and xf <= x4:
+        if yf <= y2: # Top-middle line
             area = "A2"
-        elif yf <= 1.0*xf + -0.2: # Middle Line
+        elif yf <= y5: # Middle Line
             area = "A1"
-        elif yf <= -1.0*xf + 1.1: # Bottom line
+        elif yf <= y4: # Bottom line
             area = "A3"
         else:
             area = "Entrance"
-    elif xf > 0.55 and xf <= 0.65:
-        if yf <= 1.0*xf + -0.2: # Middle Line
+    elif xf > x4 and xf <= x5:
+        if yf <= y5: # Middle Line
             area = "A1"
-        elif yf <= -1.0*xf + 1.1: # Bottom line
+        elif yf <= y4: # Bottom line
             area = "A3"
         else:
             area = "Entrance"
-    elif xf > 0.65 and xf <= 0.85:
-        if yf <= -1.0*xf + 1.1: # Bottom line
+    elif xf > x5 and xf <= x6:
+        if yf <= y4: # Bottom line
             area = "A1"
         else:
             area = "Entrance"
@@ -129,6 +138,18 @@ def which_area(image, midx, midy):
         area = "Entrance"
     
     return area
+
+
+def object_match(coordinates, prev_coordinates):
+    for prev_coordinate in prev_coordinates:
+        if coordinates[-1][4] == prev_coordinate[4]:
+            prev_x1 = prev_coordinate[0]
+            prev_y1 = prev_coordinate[1]
+            if (abs(x1-prev_x1) < frame_pixel_limiter
+                and abs(y1-prev_y1) < frame_pixel_limiter
+                ):
+                coordinates[-1][5] = prev_coordinate[5] + 1/video_fps
+                return coordinates[-1][5]
 
 
 # Main()
@@ -239,27 +260,15 @@ for video_name in os.listdir(TO_PREDICT_PATH):
             # Checks to see if previous bounding boxes match with current ones
             #  If so, then adds to timer
             frame_pixel_limiter = 40
-            for prev_coordinate in prev_coordinates:
-                if coordinates[-1][4] == prev_coordinate[4]:
-                    prev_x1 = prev_coordinate[0]
-                    if abs(x1-prev_x1) < frame_pixel_limiter:
-                        coordinates[-1][5] = prev_coordinate[5] + 1/video_fps
+            coordinates[-1][5] = object_match(coordinates, prev_coordinates)
             
             # If didn't catch any matching, then checks 2 frames ago
-            if coordinates[-1][4] == 0:
-                for prev_prev_coordinate in prev_prev_coordinates:
-                    if coordinates[-1][4] == prev_prev_coordinate[4]:
-                        prev_prev_x1 = prev_prev_coordinate[0]
-                        if abs(x1-prev_prev_x1) < frame_pixel_limiter:
-                            coordinates[-1][5] = prev_prev_coordinate[5] + 1/video_fps
+            if coordinates[-1][5] == 0:
+                coordinates[-1][5] = object_match(coordinates, prev_prev_coordinates)
             
             # If didn't catch any matching, then checks 3 frames ago
-            if coordinates[-1][4] == 0:
-                for prev_prev_prev_coordinate in prev_prev_prev_coordinates:
-                    if coordinates[-1][4] == prev_prev_prev_coordinate[4]:
-                        prev_prev_prev_x1 = prev_prev_prev_coordinate[0]
-                        if abs(x1-prev_prev_prev_x1) < frame_pixel_limiter:
-                            coordinates[-1][5] = prev_prev_prev_coordinate[5] + 1/video_fps
+            if coordinates[-1][5] == 0:
+                coordinates[-1][5] = object_match(coordinates, prev_prev_prev_coordinates)
             
             
             # Draws text above person of what area they are in
